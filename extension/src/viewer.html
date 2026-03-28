@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viewer Session - Gupt Service</title>
+    <link rel="stylesheet" href="css/viewer.css">
+</head>
+<body>
+    <div id="toolbar" class="toolbar">
+        <div class="toolbar-left">
+            <span class="status-dot"></span>
+            <span id="status-text">Connecting...</span>
+        </div>
+        <div class="toolbar-right">
+            <span id="session-display">ID: ------</span>
+            <button id="disconnect-btn" class="btn danger small">Disconnect</button>
+        </div>
+    </div>
+
+    <div class="video-container" id="video-container">
+        <!-- Interactive overlay to capture events accurately without native video controls interfering -->
+        <div id="interaction-layer"></div>
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <script type="module" src="js/viewer.js"></script>
+</body>
+</html>

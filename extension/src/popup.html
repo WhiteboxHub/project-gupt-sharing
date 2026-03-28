@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gupt Service</title>
+    <link rel="stylesheet" href="css/popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo"></div>
+            <h1>Gupt Service</h1>
+            <p>Peer-to-Peer Screen Sharing</p>
+        </header>
+
+        <div class="actions">
+            <div class="card" id="share-card">
+                <h2>Host a Session</h2>
+                <p>Share your screen and grant control.</p>
+                <button id="start-btn" class="btn primary">Start Sharing</button>
+            </div>
+
+            <div class="card" id="join-card">
+                <h2>Join a Session</h2>
+                <p>View and interact with a remote screen.</p>
+                <input type="text" id="session-input" placeholder="Enter Session ID" maxlength="6">
+                <button id="join-btn" class="btn secondary">Join Session</button>
+                <div id="join-error" class="error-text hidden"></div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="js/popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host Session - Gupt Service</title>
+    <link rel="stylesheet" href="css/host.css">
+</head>
+<body>
+    <div class="glass-panel">
+        <header>
+            <h1>Host Dashboard</h1>
+            <p>Share your screen and grant remote control.</p>
+        </header>
+
+        <div class="status-box" id="status-box">
+            Status: <span id="status-text" class="status-waiting">Waiting to Share</span>
+        </div>
+
+        <div class="main-content">
+            <div class="left-col">
+                <button id="share-btn" class="btn primary">Start Sharing Screen</button>
+                
+                <div id="session-info" class="hidden card">
+                    <h3>Your Session ID</h3>
+                    <div class="session-id-container">
+                        <span id="session-id" class="session-id">------</span>
+                        <button id="copy-btn" class="btn small">Copy</button>
+                    </div>
+                    <p class="helper-text">Share this ID securely with your peer.</p>
+                </div>
+
+                <div id="client-status" class="card hidden">
+                    <h3>Remote Peer</h3>
+                    <p id="client-text" class="client-text">Waiting for connection...</p>
+                </div>
+            </div>
+
+            <div class="right-col card">
+                <h3>Screen Preview</h3>
+                <video id="local-video" autoplay muted playsinline></video>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="js/host.js"></script>
+</body>
+</html>

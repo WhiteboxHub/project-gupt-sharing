@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Gupt Service",
+  "version": "1.0",
+  "description": "Peer to peer screen sharing and remote interaction using WebRTC.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "desktopCapture"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Gupt Service"
+  },
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
