@@ -24,6 +24,10 @@ export default defineConfig({
     webExtension({
       manifest: generateManifest,
       disableAutoLaunch: true,
+      additionalInputs: [
+        "host.html",
+        "viewer.html"
+      ]
     }),
   ],
 });

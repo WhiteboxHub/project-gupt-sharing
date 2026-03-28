@@ -1,3 +1,5 @@
+import { io } from 'socket.io-client';
+import Peer from 'simple-peer';
 import { useSessionStore } from './store.js';
 import { CONFIG, fetchIceServers } from './config.js';
 
@@ -11,122 +13,98 @@ if (!sessionIdParam) {
 
 useSessionStore.getState().setSessionId(sessionIdParam);
 
-let ws;
 const statusTextEl = document.getElementById('status-text');
-const statusDot = document.querySelector('.status-dot');
+const statusDot = document.getElementById('status-dot');
 const remoteVideo = document.getElementById('remote-video');
 const interactionLayer = document.getElementById('interaction-layer');
 
 document.getElementById('session-display').textContent = `ID: ${sessionIdParam}`;
 
-// Subscribe to Zustand state
 useSessionStore.subscribe((state) => {
     statusTextEl.textContent = state.statusText;
     if (state.statusClass === 'status-connected') {
-        statusDot.classList.add('connected');
+        statusDot.classList.replace('bg-red-500', 'bg-emerald-500');
+        statusDot.classList.replace('shadow-[0_0_8px_rgba(239,68,68,1)]', 'shadow-[0_0_8px_rgba(16,185,129,1)]');
     } else {
-        statusDot.classList.remove('connected');
+        statusDot.classList.replace('bg-emerald-500', 'bg-red-500');
+        statusDot.classList.replace('shadow-[0_0_8px_rgba(16,185,129,1)]', 'shadow-[0_0_8px_rgba(239,68,68,1)]');
     }
 
     if (state.remoteStream && remoteVideo.srcObject !== state.remoteStream) {
         remoteVideo.srcObject = state.remoteStream;
-        console.log('Attached remote video stream to UI');
     }
 });
 
 document.getElementById('disconnect-btn').addEventListener('click', () => {
-    if (ws) ws.close();
+    useSessionStore.getState().reset();
     window.close();
 });
 
 async function connectSignalingServer() {
-    // Prevent fetching ICE while connected
     const ice = await fetchIceServers();
     useSessionStore.getState().setIceServers({ iceServers: ice });
 
-    ws = new WebSocket(CONFIG.SIGNALING_URL);
-    ws.onopen = () => {
-        useSessionStore.getState().setStatus('Server Connected. Joining Session...', 'status-waiting');
-        ws.send(JSON.stringify({ type: 'join_session', sessionId: sessionIdParam }));
-    };
-    ws.onmessage = async (event) => {
-        const msg = JSON.parse(event.data);
-        handleSignalingMessage(msg);
-    };
-    ws.onclose = () => {
-        useSessionStore.getState().setStatus('Disconnected', 'status-waiting');
-    };
-}
+    const socket = io(CONFIG.SIGNALING_URL);
+    useSessionStore.getState().setSocket(socket);
 
-async function handleSignalingMessage(msg) {
-    const state = useSessionStore.getState();
-
-    switch (msg.type) {
-        case 'session_joined':
-            state.setStatus('Session Joined. Waiting for Host WebRTC Offer...', 'status-waiting');
-            break;
-
-        case 'offer':
-            state.setStatus('Received Offer. Establishing P2P...', 'status-waiting');
-            await createPeerConnection();
-            
-            const pc = useSessionStore.getState().peerConnection;
-            await pc.setRemoteDescription(new RTCSessionDescription(msg.payload));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            ws.send(JSON.stringify({ type: 'answer', sessionId: state.sessionId, payload: answer }));
-            break;
-
-        case 'candidate':
-            if (state.peerConnection) {
-                await state.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
+    socket.on('connect', () => {
+        useSessionStore.getState().setStatus('Server Connected. Joining...', 'status-waiting');
+        socket.emit('join_session', { sessionId: sessionIdParam }, (res) => {
+            if (res.error) {
+                alert(res.error);
+                window.close();
+                return;
             }
-            break;
+            useSessionStore.getState().setStatus('Session Joined. Waiting for Host...', 'status-waiting');
+            initializePeer(socket);
+        });
+    });
 
-        case 'session_ended':
-            alert('Host ended the session.');
-            window.close();
-            break;
+    socket.on('signal', ({ signalData }) => {
+        const peer = useSessionStore.getState().peer;
+        if (peer && !peer.destroyed) {
+            peer.signal(signalData);
+        }
+    });
 
-        case 'error':
-            alert(msg.message);
-            window.close();
-            break;
-    }
+    socket.on('session_ended', () => {
+        alert('Host ended the session.');
+        window.close();
+    });
+
+    socket.on('disconnect', () => {
+        useSessionStore.getState().setStatus('Disconnected', 'status-waiting');
+    });
 }
 
-async function createPeerConnection() {
+function initializePeer(socket) {
     const state = useSessionStore.getState();
-    const pc = new RTCPeerConnection(state.iceServers);
+    const peer = new Peer({
+        initiator: false, // The host is initiator
+        config: state.iceServers,
+        trickle: true
+    });
 
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            ws.send(JSON.stringify({ type: 'candidate', sessionId: state.sessionId, payload: event.candidate }));
-        }
-    };
+    peer.on('signal', data => {
+        socket.emit('signal', { sessionId: sessionIdParam, signalData: data });
+    });
 
-    pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'connected') {
-            useSessionStore.getState().setStatus('Connected & Viewing', 'status-connected');
-        } else if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
-            useSessionStore.getState().setStatus('Connection Lost', 'status-waiting');
-        }
-    };
+    peer.on('connect', () => {
+        useSessionStore.getState().setStatus('Connected & Viewing', 'status-connected');
+    });
 
-    pc.ontrack = (event) => {
-        useSessionStore.getState().setRemoteStream(event.streams[0]);
-    };
+    peer.on('stream', stream => {
+        useSessionStore.getState().setRemoteStream(stream);
+    });
 
-    pc.ondatachannel = (event) => {
-        const dc = event.channel;
-        dc.onopen = () => console.log('Data channel open for remote control!');
-        useSessionStore.getState().setDataChannel(dc);
-    };
+    peer.on('close', () => {
+        useSessionStore.getState().setStatus('Connection Lost', 'status-waiting');
+    });
 
-    state.setPeerConnection(pc);
+    useSessionStore.getState().setPeer(peer);
 }
 
-// Coordinate mapping logic
+// Coordinate mapping (Using explicit percentages)
 function getMappedCoordinates(e) {
     if (!remoteVideo.videoWidth) return null;
     
@@ -153,20 +131,29 @@ function getMappedCoordinates(e) {
         return null;
     }
 
+    // percentage-based coordinate system mathematically represented as strict ratios
     return { x: mouseX / drawWidth, y: mouseY / drawHeight };
 }
 
 function sendControlEvent(payload) {
-    const dc = useSessionStore.getState().dataChannel;
-    if (dc && dc.readyState === 'open') {
-        dc.send(JSON.stringify(payload));
+    const peer = useSessionStore.getState().peer;
+    if (peer && peer.connected) {
+        peer.send(JSON.stringify(payload));
     }
 }
 
+// Interactive layer listeners
 interactionLayer.addEventListener('click', (e) => {
     const coords = getMappedCoordinates(e);
     if (!coords) return;
     sendControlEvent({ type: 'click', ...coords });
+});
+
+interactionLayer.addEventListener('mousemove', (e) => {
+    // Send mousemove for shadow cursor
+    const coords = getMappedCoordinates(e);
+    if (!coords) return;
+    sendControlEvent({ type: 'mousemove', ...coords });
 });
 
 interactionLayer.addEventListener('wheel', (e) => {
@@ -180,6 +167,13 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
     sendControlEvent({ type: 'keyup', key: e.key, code: e.code, modifiers: { ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey }});
+});
+
+// Listen for Panic kill from global hotkey
+chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.action === 'PANIC_KILL') {
+        useSessionStore.getState().reset();
+    }
 });
 
 connectSignalingServer();

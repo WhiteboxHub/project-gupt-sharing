@@ -1,7 +1,8 @@
+import { io } from 'socket.io-client';
+import Peer from 'simple-peer';
 import { useSessionStore } from './store.js';
 import { CONFIG, fetchIceServers } from './config.js';
 
-let ws;
 const statusTextEl = document.getElementById('status-text');
 const shareBtn = document.getElementById('share-btn');
 const sessionInfo = document.getElementById('session-info');
@@ -11,10 +12,10 @@ const clientText = document.getElementById('client-text');
 const copyBtn = document.getElementById('copy-btn');
 const localVideo = document.getElementById('local-video');
 
-// Subscribe to Zustand store changes to update DOM gracefully
 useSessionStore.subscribe((state) => {
     statusTextEl.textContent = state.statusText;
-    statusTextEl.className = state.statusClass;
+    // Basic class overriding if needed, tailwind handles default colors well but we can swap them
+    if (state.statusClass) statusTextEl.className = `text-sm font-semibold ${state.statusClass}`;
 
     if (state.sessionId) {
         sessionIdEl.textContent = state.sessionId;
@@ -28,75 +29,74 @@ useSessionStore.subscribe((state) => {
     }
 });
 
-async function connectSignalingServer() {
-    ws = new WebSocket(CONFIG.SIGNALING_URL);
-    ws.onopen = () => console.log('Connected to signaling server');
-    ws.onmessage = async (event) => {
-        const msg = JSON.parse(event.data);
-        handleSignalingMessage(msg);
-    };
-    ws.onclose = () => {
-        useSessionStore.getState().setStatus('Disconnected from Server', 'status-waiting');
-        setTimeout(connectSignalingServer, 3000);
-    };
+function connectSignalingServer() {
+    const socket = io(CONFIG.SIGNALING_URL);
+    useSessionStore.getState().setSocket(socket);
 
-    // Pre-fetch ICE servers while waiting
-    const ice = await fetchIceServers();
-    useSessionStore.getState().setIceServers(ice);
+    socket.on('connect', async () => {
+        console.log('socket.io connected');
+        const ice = await fetchIceServers();
+        useSessionStore.getState().setIceServers(ice);
+    });
+
+    socket.on('client_joined', ({ sessionId }) => {
+        clientText.textContent = 'Client connected. Establishing secure tunnel...';
+        useSessionStore.getState().setStatus('Client Connecting...', 'text-yellow-400');
+        
+        const state = useSessionStore.getState();
+        const peer = new Peer({
+            initiator: true,
+            stream: state.localStream,
+            config: { iceServers: state.iceServers },
+            trickle: true
+        });
+        
+        peer.on('signal', data => {
+            socket.emit('signal', { sessionId, signalData: data });
+        });
+
+        peer.on('connect', () => {
+            useSessionStore.getState().setStatus('Connected (P2P)', 'text-emerald-400');
+            clientText.textContent = 'Client is controlling your screen!';
+        });
+
+        peer.on('data', data => {
+            handleControlMessage({ data });
+        });
+
+        peer.on('close', () => {
+            clientText.textContent = 'Client disconnected. Waiting for new client...';
+            useSessionStore.getState().setStatus('Session Active. Waiting for Peer.', 'text-yellow-400');
+        });
+
+        useSessionStore.getState().setPeer(peer);
+    });
+
+    socket.on('signal', ({ signalData }) => {
+        const peer = useSessionStore.getState().peer;
+        if (peer && !peer.destroyed) {
+            peer.signal(signalData);
+        }
+    });
+
+    socket.on('client_disconnected', () => {
+        clientText.textContent = 'Client disconnected. Waiting for new client...';
+        useSessionStore.getState().setStatus('Session Active. Waiting for Peer.', 'text-yellow-400');
+        const peer = useSessionStore.getState().peer;
+        if (peer) peer.destroy();
+    });
+
+    socket.on('disconnect', () => {
+        useSessionStore.getState().setStatus('Disconnected from Server', 'text-red-500');
+    });
 }
 
-async function handleSignalingMessage(msg) {
-    const state = useSessionStore.getState();
-
-    switch (msg.type) {
-        case 'session_created':
-            state.setSessionId(msg.sessionId);
-            state.setStatus('Session Active. Waiting for Peer.', 'status-waiting');
-            break;
-
-        case 'client_joined':
-            clientText.textContent = 'Client connected. Establishing secure tunnel...';
-            state.setStatus('Client Connecting...', 'status-waiting');
-            await createPeerConnection();
-            
-            // State might have updated pc
-            const pc = useSessionStore.getState().peerConnection;
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            ws.send(JSON.stringify({ type: 'offer', sessionId: state.sessionId, payload: pc.localDescription }));
-            break;
-
-        case 'answer':
-            if (state.peerConnection) {
-                await state.peerConnection.setRemoteDescription(new RTCSessionDescription(msg.payload));
-                clientText.textContent = 'Client is viewing your screen!';
-                state.setStatus('Secure Session Active', 'status-connected');
-            }
-            break;
-
-        case 'candidate':
-            if (state.peerConnection) {
-                await state.peerConnection.addIceCandidate(new RTCIceCandidate(msg.payload));
-            }
-            break;
-
-        case 'client_disconnected':
-            clientText.textContent = 'Client disconnected. Waiting for new client...';
-            state.setStatus('Session Active. Waiting for Peer.', 'status-waiting');
-            if (state.peerConnection) {
-                state.peerConnection.close();
-                state.setPeerConnection(null);
-            }
-            break;
-
-        case 'session_ended':
-            alert('Session ended');
-            window.close();
-            break;
-
-        case 'error':
-            alert(msg.message);
-            break;
+function handleControlMessage(event) {
+    try {
+        const ctrlData = JSON.parse(event.data.toString());
+        chrome.runtime.sendMessage({ action: 'REMOTE_CONTROL', data: ctrlData });
+    } catch (e) {
+        console.error('Invalid control data', e);
     }
 }
 
@@ -108,63 +108,23 @@ async function startScreenShare() {
         });
 
         useSessionStore.getState().setLocalStream(stream);
-        
+
         stream.getVideoTracks()[0].onended = () => {
             alert('Screen share ended locally.');
-            if (ws && useSessionStore.getState().sessionId) {
-                ws.close();
-            }
+            const { socket } = useSessionStore.getState();
+            if (socket) socket.disconnect();
             window.close();
         };
 
-        ws.send(JSON.stringify({ type: 'create_session' }));
+        const socket = useSessionStore.getState().socket;
+        socket.emit('create_session', (res) => {
+            useSessionStore.getState().setSessionId(res.sessionId);
+            useSessionStore.getState().setStatus('Session Active. Waiting for Peer.', 'text-yellow-400');
+        });
 
     } catch (err) {
-        console.error('Error sharing screen:', err);
-        useSessionStore.getState().setStatus('Screen share failed or denied.', 'status-waiting');
-    }
-}
-
-async function createPeerConnection() {
-    const state = useSessionStore.getState();
-    const pc = new RTCPeerConnection({ iceServers: state.iceServers });
-
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            ws.send(JSON.stringify({ type: 'candidate', sessionId: useSessionStore.getState().sessionId, payload: event.candidate }));
-        }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-        if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
-            clientText.textContent = 'Connection lost. Waiting for reconnect...';
-        } else if (pc.iceConnectionState === 'connected') {
-            clientText.textContent = 'Client is controlling your screen!';
-            useSessionStore.getState().setStatus('Connected (P2P)', 'status-connected');
-        }
-    };
-
-    if (state.localStream) {
-        state.localStream.getTracks().forEach(track => {
-            pc.addTrack(track, state.localStream);
-        });
-    }
-
-    const dc = pc.createDataChannel('controlChannel');
-    dc.onopen = () => console.log('Data channel open');
-    dc.onmessage = handleControlMessage;
-    
-    state.setPeerConnection(pc);
-    state.setDataChannel(dc);
-}
-
-function handleControlMessage(event) {
-    try {
-        const ctrlData = JSON.parse(event.data);
-        console.log('Received control data:', ctrlData);
-        chrome.runtime.sendMessage({ action: 'REMOTE_CONTROL', data: ctrlData });
-    } catch (e) {
-        console.error('Invalid control data', e);
+        console.error('Error:', err);
+        useSessionStore.getState().setStatus('Screen share failed.', 'text-red-500');
     }
 }
 
@@ -174,6 +134,13 @@ copyBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(useSessionStore.getState().sessionId);
     copyBtn.textContent = 'Copied!';
     setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+});
+
+// Listen for Panic kill from global hotkey
+chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.action === 'PANIC_KILL') {
+        useSessionStore.getState().reset();
+    }
 });
 
 connectSignalingServer();
