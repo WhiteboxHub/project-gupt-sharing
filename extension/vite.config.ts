@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import webExtension, { readJsonFile } from "vite-plugin-web-extension";
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 function generateManifest() {
   const manifest = readJsonFile("src/manifest.json");
@@ -10,15 +11,19 @@ function generateManifest() {
 }
 
 export default defineConfig({
-  root: "src", // Sets the source root
+  root: "src",
   build: {
     outDir: "../dist",
     emptyOutDir: true,
   },
   plugins: [
+    nodePolyfills({
+      globals: { Buffer: true, process: true, global: true },
+      protocolImports: true,
+    }),
     webExtension({
       manifest: generateManifest,
-      disableAutoLaunch: true, // Don't automatically launch Chrome on every dev run
+      disableAutoLaunch: true,
     }),
   ],
 });

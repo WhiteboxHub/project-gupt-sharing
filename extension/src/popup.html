@@ -2,31 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gupt Service</title>
-    <link rel="stylesheet" href="css/popup.css">
+    <link href="css/popup.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo"></div>
-            <h1>Gupt Service</h1>
-            <p>Peer-to-Peer Screen Sharing</p>
+<body class="w-[340px] bg-slate-900 text-slate-100 font-sans p-4 antialiased overflow-hidden">
+    <div class="relative w-full p-6 bg-slate-800/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl">
+        <header class="text-center mb-6">
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Gupt Service</h1>
+            <p class="text-xs text-slate-400 mt-1">Peer-to-Peer Screen Sharing</p>
         </header>
-
-        <div class="actions">
-            <div class="card" id="share-card">
-                <h2>Host a Session</h2>
-                <p>Share your screen and grant control.</p>
-                <button id="start-btn" class="btn primary">Start Sharing</button>
+        <div class="space-y-4">
+            <div class="p-4 bg-slate-800/60 backdrop-blur-md border border-white/5 rounded-xl transition hover:-translate-y-0.5 hover:shadow-lg">
+                <h2 class="text-sm font-semibold mb-1">Host a Session</h2>
+                <p class="text-xs text-slate-400 mb-3">Share your screen & grant control.</p>
+                <button id="start-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors">Start Sharing</button>
             </div>
-
-            <div class="card" id="join-card">
-                <h2>Join a Session</h2>
-                <p>View and interact with a remote screen.</p>
-                <input type="text" id="session-input" placeholder="Enter Session ID" maxlength="6">
-                <button id="join-btn" class="btn secondary">Join Session</button>
-                <div id="join-error" class="error-text hidden"></div>
+            <div class="p-4 bg-slate-800/60 backdrop-blur-md border border-white/5 rounded-xl transition hover:-translate-y-0.5 hover:shadow-lg">
+                <h2 class="text-sm font-semibold mb-1">Join a Session</h2>
+                <input type="text" id="session-input" placeholder="e.g. fluffy-tiger-dance" class="w-full px-3 py-2 bg-slate-900/80 border border-white/10 rounded-lg text-sm text-center mb-3 outline-none focus:border-blue-500 transition-colors">
+                <button id="join-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition-colors">Join Session</button>
+                <div id="join-error" class="hidden text-red-500 text-xs text-center mt-2"></div>
             </div>
         </div>
     </div>

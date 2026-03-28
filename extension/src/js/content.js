@@ -4,36 +4,60 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { type, x, y, key, code, modifiers, deltaX, deltaY } = message.data;
 
     let targetElement = document.activeElement || document.body;
+    let absX, absY;
 
     if (x !== undefined && y !== undefined) {
         // Map normalized coordinates (0.0 - 1.0) back to actual window dimensions
-        const absX = window.innerWidth * x;
-        const absY = window.innerHeight * y;
-
+        absX = window.innerWidth * x;
+        absY = window.innerHeight * y;
         targetElement = document.elementFromPoint(absX, absY) || document.body;
 
-        if (type === 'click') {
-            const clickEvent = new MouseEvent('click', {
-                view: window, bubbles: true, cancelable: true,
-                clientX: absX, clientY: absY
+        // Shadow cursor logic
+        let shadowCursor = document.getElementById('gupt-shadow-cursor');
+        if (!shadowCursor) {
+            shadowCursor = document.createElement('div');
+            shadowCursor.id = 'gupt-shadow-cursor';
+            Object.assign(shadowCursor.style, {
+                position: 'fixed',
+                width: '16px', height: '16px',
+                backgroundColor: 'rgba(59, 130, 246, 0.8)', // Modern blue tailwind color
+                border: '2px solid white',
+                borderRadius: '50%',
+                zIndex: '2147483647',
+                pointerEvents: 'none',
+                transition: 'top 0.03s linear, left 0.03s linear',
+                boxShadow: '0 0 10px rgba(59, 130, 246, 0.8)',
+                transform: 'translate(-50%, -50%)'
             });
-            targetElement.dispatchEvent(clickEvent);
+            document.body.appendChild(shadowCursor);
+        }
+        shadowCursor.style.left = `${absX}px`;
+        shadowCursor.style.top = `${absY}px`;
+    }
 
-            if (targetElement.focus) {
-                targetElement.focus({ preventScroll: true });
-            }
+    if (type === 'click' && absX !== undefined) {
+        const clickEvent = new MouseEvent('click', {
+            view: window, bubbles: true, cancelable: true,
+            clientX: absX, clientY: absY
+        });
+        targetElement.dispatchEvent(clickEvent);
+        if (targetElement.focus) targetElement.focus({ preventScroll: true });
+
+        // Add a click ripple
+        let shadowCursor = document.getElementById('gupt-shadow-cursor');
+        if (shadowCursor) {
+            shadowCursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            setTimeout(() => shadowCursor.style.transform = 'translate(-50%, -50%) scale(1)', 100);
         }
     } else if (type === 'scroll') {
-        window.scrollBy({ left: deltaX, top: deltaY, behavior: 'instant' });
+        window.scrollBy({ left: deltaX, top: deltaY, behavior: 'auto' });
     } else if (type === 'keydown' || type === 'keyup') {
-        const EventClass = type === 'keydown' ? KeyboardEvent : KeyboardEvent;
+        const EventClass = KeyboardEvent;
         const keyEvent = new EventClass(type, {
             key, code, bubbles: true, cancelable: true, ...modifiers
         });
         targetElement.dispatchEvent(keyEvent);
 
-        // Browsers block real input simulation via KeyboardEvents for security,
-        // so we manually mutate value on keyup for printable characters.
         if (type === 'keyup') {
             const isWritable = targetElement.tagName === 'TEXTAREA' || 
                 (targetElement.tagName === 'INPUT' && ['text', 'password', 'email', 'search', 'tel', 'url', 'number'].includes(targetElement.type));
