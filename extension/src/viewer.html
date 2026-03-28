@@ -2,26 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Viewer Session - Gupt Service</title>
-    <link rel="stylesheet" href="css/viewer.css">
+    <link href="css/viewer.css" rel="stylesheet">
 </head>
-<body>
-    <div id="toolbar" class="toolbar">
-        <div class="toolbar-left">
-            <span class="status-dot"></span>
-            <span id="status-text">Connecting...</span>
+<body class="w-screen h-screen m-0 p-0 bg-black overflow-hidden flex items-center justify-center font-sans text-slate-100 group">
+    
+    <div class="absolute top-0 left-0 right-0 h-14 bg-slate-900/80 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-6 z-[100] transform -translate-y-full transition-transform duration-300 group-hover:translate-y-0">
+        <div class="flex items-center gap-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)] transition-colors duration-300" id="status-dot"></span>
+            <span id="status-text" class="text-sm font-medium">Connecting...</span>
         </div>
-        <div class="toolbar-right">
-            <span id="session-display">ID: ------</span>
-            <button id="disconnect-btn" class="btn danger small">Disconnect</button>
+        <div class="flex items-center gap-4">
+            <span id="session-display" class="font-mono text-sm bg-white/10 px-3 py-1 rounded-md">ID: ------</span>
+            <button id="disconnect-btn" class="px-4 py-1.5 bg-red-600 hover:bg-red-500 font-semibold text-white text-sm rounded-lg transition-colors">Disconnect</button>
         </div>
     </div>
 
-    <div class="video-container" id="video-container">
-        <!-- Interactive overlay to capture events accurately without native video controls interfering -->
-        <div id="interaction-layer"></div>
-        <video id="remote-video" autoplay playsinline></video>
+    <div class="relative w-full h-full flex items-center justify-center bg-zinc-950">
+        <div id="interaction-layer" class="absolute inset-0 z-10 cursor-crosshair"></div>
+        <video id="remote-video" class="w-full h-full object-contain pointer-events-none" autoplay playsinline></video>
     </div>
 
     <script type="module" src="js/viewer.js"></script>
