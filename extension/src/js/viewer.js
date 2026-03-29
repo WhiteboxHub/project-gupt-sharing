@@ -149,7 +149,12 @@ interactionLayer.addEventListener('click', (e) => {
     sendControlEvent({ type: 'click', ...coords });
 });
 
+let lastMouseMove = 0;
 interactionLayer.addEventListener('mousemove', (e) => {
+    const now = Date.now();
+    if (now - lastMouseMove < 30) return; // Throttle to ~30fps
+    lastMouseMove = now;
+
     // Send mousemove for shadow cursor
     const coords = getMappedCoordinates(e);
     if (!coords) return;
