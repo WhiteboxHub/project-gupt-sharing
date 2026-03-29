@@ -1,6 +1,6 @@
 export const CONFIG = {
-    SIGNALING_URL: 'https://lucky-mangos-smoke.loca.lt',
-    TURN_CREDENTIALS_URL: 'https://lucky-mangos-smoke.loca.lt/turn-credentials'
+    SIGNALING_URL: 'https://myrtie-hardened-suzanna.ngrok-free.dev',
+    TURN_CREDENTIALS_URL: 'https://myrtie-hardened-suzanna.ngrok-free.dev/turn-credentials'
 };
 
 export async function fetchIceServers() {
