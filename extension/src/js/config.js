@@ -1,6 +1,6 @@
 export const CONFIG = {
-    SIGNALING_URL: 'ws://localhost:3000',
-    TURN_CREDENTIALS_URL: 'http://localhost:3000/turn-credentials'
+    SIGNALING_URL: 'https://lucky-mangos-smoke.loca.lt',
+    TURN_CREDENTIALS_URL: 'https://lucky-mangos-smoke.loca.lt/turn-credentials'
 };
 
 export async function fetchIceServers() {
