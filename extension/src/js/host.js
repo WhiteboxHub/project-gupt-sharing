@@ -11,6 +11,7 @@ const clientStatus = document.getElementById('client-status');
 const clientText = document.getElementById('client-text');
 const copyBtn = document.getElementById('copy-btn');
 const localVideo = document.getElementById('local-video');
+const stopBtn = document.getElementById('stop-btn');
 
 useSessionStore.subscribe((state) => {
     statusTextEl.textContent = state.statusText;
@@ -22,6 +23,12 @@ useSessionStore.subscribe((state) => {
         sessionInfo.classList.remove('hidden');
         clientStatus.classList.remove('hidden');
         shareBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+    } else {
+        sessionInfo.classList.add('hidden');
+        clientStatus.classList.add('hidden');
+        shareBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
     }
 
     if (state.localStream && localVideo.srcObject !== state.localStream) {
@@ -129,6 +136,16 @@ async function startScreenShare() {
 }
 
 shareBtn.addEventListener('click', startScreenShare);
+
+stopBtn.addEventListener('click', () => {
+    const state = useSessionStore.getState();
+    if (state.localStream) {
+        state.localStream.getTracks().forEach(track => track.stop());
+    }
+    const socket = state.socket;
+    if (socket) socket.disconnect();
+    window.close();
+});
 
 copyBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(useSessionStore.getState().sessionId);

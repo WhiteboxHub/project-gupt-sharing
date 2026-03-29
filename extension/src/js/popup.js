@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('join-btn').addEventListener('click', () => {
-        const sessionId = document.getElementById('session-input').value.trim().toUpperCase();
+        const sessionId = document.getElementById('session-input').value.trim().toLowerCase();
         if (!sessionId || sessionId.length < 6) {
             const errorEl = document.getElementById('join-error');
             errorEl.textContent = 'Please enter a valid 6-character Session ID.';
