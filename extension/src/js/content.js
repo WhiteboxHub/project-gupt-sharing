@@ -36,11 +36,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (type === 'click' && absX !== undefined) {
-        const clickEvent = new MouseEvent('click', {
+        const eventConfig = {
             view: window, bubbles: true, cancelable: true,
             clientX: absX, clientY: absY
+        };
+        
+        ['mousedown', 'mouseup', 'click'].forEach(evtType => {
+            targetElement.dispatchEvent(new MouseEvent(evtType, eventConfig));
         });
-        targetElement.dispatchEvent(clickEvent);
+
+        // Backup native click just in case JS events are ignored by the website
+        if (typeof targetElement.click === 'function') {
+            targetElement.click();
+        }
+
         if (targetElement.focus) targetElement.focus({ preventScroll: true });
 
         // Add a click ripple
