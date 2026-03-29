@@ -1,15 +1,15 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'REMOTE_CONTROL') {
-        // Forward cursor events + clicks
-        chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-            if (tabs.length > 0) {
-                chrome.tabs.sendMessage(tabs[0].id, {
+        // Forward cursor events + clicks to ALL active tabs in case Chrome lost OS focus
+        chrome.tabs.query({ active: true }, (tabs) => {
+            tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, {
                     action: 'REMOTE_ACTION',
                     data: message.data
                 }).catch(err => {
-                    // Ignore injection errors
+                    // Ignore if tab is a chrome:// page or not injected
                 });
-            }
+            });
         });
     }
 });
